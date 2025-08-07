@@ -12,9 +12,9 @@ using namespace std;
 #define fast_io ios::sync_with_stdio(false); cin.tie(0);
 
 const unsigned char MARKER = 0xFF;
+const int MAX_CHAIN_LENGTH = 8;
 
-//POSSIVEIS ERROS: MARCADOR INSERIDO ERRADO OU SEM SUBSTITUIÇÃO CORRETA
-//CHECA ISSO DIREITO SE QUEBRAR
+//TA LENTO Q SO A PORRA
 
 void displayBits(unsigned char byte) {
     for (int bit = 7; bit >= 0; --bit) {
@@ -32,12 +32,13 @@ void displayByte(string byte){
 
 void encode(vector<unsigned char>& buffer) {
 
+    cout << "Encoding..." << "\n";
     std::unordered_map<string, int> freq;
     std::unordered_map<string, int> commonBytes;
 
     //constructs frequency map
     for (int i = 0; i < buffer.size(); i++) {
-        for(int j = 1; j <= 8; ++j) {
+        for(int j = 1; j <= MAX_CHAIN_LENGTH; ++j) {
             if (i + j <= buffer.size()) {
                 string bytes(buffer.begin() + i, buffer.begin() + i + j);
 
@@ -60,8 +61,8 @@ void encode(vector<unsigned char>& buffer) {
     }
     avg = sum / freq.size();
 
-    cout << "\nAverage frequency: " << avg;
-    cout << "\nFrom " << freq.size() << " total distinct bytes \n";
+    cout << "Average frequency: \n" << avg;
+    cout << "From " << freq.size() << " total distinct bytes \n";
 
 
     cout << "Clearing key duplicates" << "\n";
@@ -96,7 +97,7 @@ void encode(vector<unsigned char>& buffer) {
         }
 
         if (!shouldRemove) {
-            clearFreq[keys[i]] = freq[keys[i]];
+            clearFreq[keys[i]] = commonBytes[keys[i]];
         }
     }
 
@@ -108,32 +109,10 @@ void encode(vector<unsigned char>& buffer) {
         byteAliases[k] = start++;
     }
 
+    cout << byteAliases.size() << " bytes selected for substitution\n";
 
-    cout << "Substituting..." << "\n";
-    vector<unsigned char> resultBuffer;
-    
-    resultBuffer.reserve(buffer.size());
-    
-    for (int i = 0; i < buffer.size();) {
-        bool subs = false;
-
-        for (const auto& [pattern, alias] : byteAliases) {
-            if (i + pattern.size() <= buffer.size() &&
-                memcmp(&buffer[i], pattern.data(), pattern.size()) == 0) {
-
-                resultBuffer.push_back(MARKER);
-                resultBuffer.push_back(alias);
-                i += pattern.size(); 
-                subs = true;
-                break;
-            }
-        }
-
-        if (!subs) {
-            resultBuffer.push_back(buffer[i]);
-            ++i;
-        }
-    }
+    for(auto& [k, _] : clearFreq)
+        displayByte(k);
 
     int total_savings = 0;
     for (const auto& [pattern, freq] : clearFreq) {
@@ -144,12 +123,63 @@ void encode(vector<unsigned char>& buffer) {
     }
     std::cout << "Estimated total savings: " << total_savings << " bytes\n";
 
+    cout << "Substituting..." << "\n";
+    vector<unsigned char> resultBuffer;
+    
+    resultBuffer.reserve(buffer.size());
+    size_t last_percent = -1;
+    unordered_map<unsigned char, vector<pair<string, unsigned char>>> fastAliasMap;
+    unordered_map<string, int> actualSubs;
+    
+    for (const auto& [pattern, alias] : byteAliases) {
+        fastAliasMap[(unsigned char)pattern[0]].emplace_back(pattern, alias);
+    }
+
+    for (int i = 0; i < buffer.size();) {
+        bool subs = false;
+
+        auto it = fastAliasMap.find(buffer[i]);
+        if (it != fastAliasMap.end()) {
+            for (const auto& [pattern, alias] : it->second) {
+                if (i + pattern.size() <= buffer.size() &&
+                    memcmp(&buffer[i], pattern.data(), pattern.size()) == 0) {
+
+                    resultBuffer.push_back(MARKER);
+                    resultBuffer.push_back(alias);
+                    i += pattern.size(); 
+                    actualSubs[pattern]++;
+                    subs = true;
+                    break;
+                }
+            }
+        }
+
+        if (!subs) {
+            resultBuffer.push_back(buffer[i]);
+            ++i;
+        }
+
+        size_t percent = i * 100 / buffer.size();
+        if (percent > last_percent + 5) {
+            std::cout << percent << "% (" << i << "/" << buffer.size() << ")\n";
+            last_percent = percent;
+        }
+    }
+
+    int actualSavings = 0;
+    for (const auto& [pattern, count] : actualSubs) {
+        if (count > 0) {
+            actualSavings += count * ((int)pattern.size() - 2);
+        }
+    }
+    std::cout << "Actual savings: " << actualSavings << " bytes\n";
+
     buffer.clear();
     buffer = move(resultBuffer);
 }
 
 int main(int argc, char* argv[]) {
-    fast_io;
+    cout << "SQUEEZE!" << "\n";
 
     if (argc < 3) {
         std::cerr << "Usage: " << argv[0] << " <input_file> <output_file>\n";
@@ -168,6 +198,8 @@ int main(int argc, char* argv[]) {
     std::vector<unsigned char> buffer((std::istreambuf_iterator<char>(input)),
                                    std::istreambuf_iterator<char>());
 
+    cout << "Buffer read complete" << "\n";
+
     encode(buffer);
 
     std::ofstream output(outputFilename, std::ios::binary);
@@ -181,5 +213,3 @@ int main(int argc, char* argv[]) {
 
     return 0;
 }
-
-
