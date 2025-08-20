@@ -14,7 +14,21 @@ using namespace std;
 const unsigned char MARKER = 0xFF;
 const int MAX_CHAIN_LENGTH = 8;
 
-//TA LENTO Q SO A PORRA
+struct VectorHash {
+    size_t operator()(const vector<unsigned char>& v) const {
+        size_t hash = 0;
+        for (auto b : v) {
+            hash ^= std::hash<unsigned char>()(b) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+        }
+        return hash;
+    }
+};
+
+struct VectorEqual {
+    bool operator()(const vector<unsigned char>& a, const vector<unsigned char>& b) const {
+        return a == b;
+    }
+};
 
 void displayBits(unsigned char byte) {
     for (int bit = 7; bit >= 0; --bit) {
@@ -32,9 +46,24 @@ void displayByte(string byte){
 
 void encode(vector<unsigned char>& buffer) {
 
+    unordered_map<vector<unsigned char>, int, VectorHash, VectorEqual> dictionary;
+
+
     cout << "Encoding..." << "\n";
    
-    
+    vector<unsigned char> currentString = {};  
+
+    int counter = 0;
+
+    for(int i = 0; i < buffer.size(); i++){
+        unsigned char currentChar = buffer[i];
+
+        currentString.push_back(currentChar);
+
+        if(dictionary.find(currentString) == dictionary.end()) {
+            dictionary[currentString] = counter++;
+        }
+    }
 }
 
 int main(int argc, char* argv[]) {
