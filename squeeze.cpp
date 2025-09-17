@@ -9,65 +9,179 @@
 #include <cctype>
 using namespace std;
 
-#define fast_io ios::sync_with_stdio(false); cin.tie(0);
+#define fast_io                  \
+    ios::sync_with_stdio(false); \
+    cin.tie(0);
 
 const unsigned char MARKER = 0xFF;
 const int MAX_CHAIN_LENGTH = 8;
+const string HEADER = "O=======================|[ SQUEEZE! ]|=======================O";
 
-struct VectorHash {
-    size_t operator()(const vector<unsigned char>& v) const {
+struct VectorHash
+{
+    size_t operator()(const vector<unsigned char> &v) const
+    {
         size_t hash = 0;
-        for (auto b : v) {
+        for (auto b : v)
+        {
             hash ^= std::hash<unsigned char>()(b) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
         }
         return hash;
     }
 };
 
-struct VectorEqual {
-    bool operator()(const vector<unsigned char>& a, const vector<unsigned char>& b) const {
+struct VectorEqual
+{
+    bool operator()(const vector<unsigned char> &a, const vector<unsigned char> &b) const
+    {
         return a == b;
     }
 };
 
-std::string getFileExtension(const std::string& filename) {
+void printLinePair(string key, string value)
+{
+    cout << "| " << key;
+
+    int padSize = 4;
+    int lnLength = HEADER.size() - key.size() - value.size() - padSize;
+
+    for (int i = 0; i < lnLength; i++)
+    {
+        cout << " ";
+    }
+
+    cout << value << " |\n";
+}
+
+void printLine(string line)
+{
+    cout << "| " << line;
+
+    int padSize = 4;
+    int lnLength = HEADER.size() - line.size() - padSize;
+
+    for (int i = 0; i < lnLength; i++)
+    {
+        cout << " ";
+    }
+
+    cout << " |\n";
+}
+
+void printBoxEnd()
+{
+    cout << "O";
+    for (int i = 0; i < HEADER.size() - 2; i++)
+    {
+        cout << "=";
+    }
+    cout << "O\n";
+}
+
+void printBoxEndError()
+{
+    cout << "[!]";
+    for (int i = 0; i < HEADER.size() - 6; i++)
+    {
+        cout << "=";
+    }
+    cout << "[!]\n";
+}
+
+void printLinePairError(string key, string value)
+{
+
+    cout << "\n";
+
+    printBoxEndError();
+    printLinePair("", "");
+    cout << "| [!] " << key;
+
+    int padSize = 12;
+    int lnLength = HEADER.size() - key.size() - value.size() - padSize;
+
+    for (int i = 0; i < lnLength; i++)
+    {
+        cout << " ";
+    }
+
+    cout << value << " [!] |\n";
+
+    printLinePair("", "");
+    printBoxEndError();
+}
+
+std::string formatSize(int size)
+{
+    std::string s = std::to_string(size);
+    std::string formatted_s = "";
+    int counter = 0;
+
+    for (int i = s.length() - 1; i >= 0; --i)
+    {
+        formatted_s.push_back(s[i]);
+        counter++;
+        if (counter % 3 == 0 && i != 0)
+        {
+            formatted_s.push_back(',');
+        }
+    }
+    std::reverse(formatted_s.begin(), formatted_s.end());
+
+    formatted_s += " bytes";
+
+    return formatted_s;
+}
+
+std::string getFileExtension(const std::string &filename)
+{
     size_t pos = filename.find_last_of('.');
-    if (pos != std::string::npos) {
+    if (pos != std::string::npos)
+    {
         return filename.substr(pos);
     }
     return "";
 }
 
-std::string removeExtension(const std::string& filename) {
+std::string removeExtension(const std::string &filename)
+{
     size_t pos = filename.find_last_of('.');
-    if (pos != std::string::npos) {
-        return filename.substr(0, pos);
+    if (pos != std::string::npos)
+    {
+        return "desqueezed-" + filename.substr(0, pos);
     }
-    return filename;
+    return "desqueezed-" + filename;
 }
 
-void displayBits(unsigned char byte) {
-    for (int bit = 7; bit >= 0; --bit) {
+void displayBits(unsigned char byte)
+{
+    for (int bit = 7; bit >= 0; --bit)
+    {
         std::cout << ((byte >> bit) & 1);
     }
     std::cout << " ";
 }
 
-void displayByte(string byte){
-    for (unsigned char b : byte) {
+void displayByte(string byte)
+{
+    for (unsigned char b : byte)
+    {
         displayBits(b);
     }
     std::cout << "\n";
 }
 
-void displayByte(vector<unsigned char> byte){
-    for (unsigned char b : byte) {
+void displayByte(vector<unsigned char> byte)
+{
+    for (unsigned char b : byte)
+    {
         displayBits(b);
     }
     std::cout << "\n";
 }
 
-void encode(vector<unsigned char>& buffer) {
+void encode(vector<unsigned char> &buffer)
+{
 
     /*
     w \= NIL;
@@ -75,7 +189,7 @@ void encode(vector<unsigned char>& buffer) {
     for (every character c in the uncompressed data) do
         if ((w + c) exists in the dictionary) then
            w = w + c;
-        else 
+        else
            add (w + c) to the dictionary;
            add the dictionary code for w to output;
            w = c;
@@ -85,64 +199,65 @@ void encode(vector<unsigned char>& buffer) {
     display output;
    */
 
-
     unordered_map<vector<unsigned char>, int, VectorHash, VectorEqual> dictionary;
     vector<int> output;
-    
-    cout << "Encoding..." << "\n";
-    cout << "Buffer size: " << buffer.size() << "\n";
-    
-    for (int i = 0; i < 256; i++) {
+
+    printLinePair("Input size: ", formatSize(buffer.size()));
+    printLine("Encoding...");
+    printBoxEnd();
+
+    for (int i = 0; i < 256; i++)
+    {
         dictionary[{static_cast<unsigned char>(i)}] = i;
     }
-    
-    int nextCode = 256; 
+
+    int nextCode = 256;
     vector<unsigned char> w = {};
-    
-    for (int i = 0; i < buffer.size(); i++) {
+
+    for (int i = 0; i < buffer.size(); i++)
+    {
         unsigned char c = buffer[i];
         vector<unsigned char> wc = w;
         wc.push_back(c);
-        
-        if (dictionary.find(wc) != dictionary.end()) {
+
+        if (dictionary.find(wc) != dictionary.end())
+        {
             w = wc;
-        } else {
+        }
+        else
+        {
             dictionary[wc] = nextCode++;
-            
-            if (!w.empty()) { 
+
+            if (!w.empty())
+            {
                 output.push_back(dictionary[w]);
             }
-            
+
             w = {c};
         }
     }
-    
-    if (!w.empty()) {
+
+    if (!w.empty())
+    {
         output.push_back(dictionary[w]);
     }
-    
-    cout << "Compression complete. Output size: " << output.size() << " codes\n";
-    
+
+    printLine("SQUEEZED!");
+    printLinePair("Output size: ", formatSize(output.size()));
+
     buffer.clear();
-        for (int code : output) {
-        if (code < 256) {
-            buffer.push_back(static_cast<unsigned char>(code));
-        } else if (code < 65536) {
-            buffer.push_back(0xFF);
-            buffer.push_back(code & 0xFF);
-            buffer.push_back((code >> 8) & 0xFF);
-        } else {
-            buffer.push_back(0xFE);
-            buffer.push_back(code & 0xFF);
-            buffer.push_back((code >> 8) & 0xFF);
-            buffer.push_back((code >> 16) & 0xFF);
-        }
+    for (int code : output)
+    {
+        buffer.push_back((code >> 8) & 0xFF);
+        buffer.push_back(code & 0xFF);
     }
-    
-    cout << "New buffer size: " << buffer.size() << " bytes\n";
+
+    printLinePair("New file size: ", formatSize(buffer.size()));
+    printBoxEnd();
 }
 
-void decode(vector<unsigned char>& buffer){
+void decode(vector<unsigned char> &buffer)
+{
     /*
     read a char k;
     output k;
@@ -161,68 +276,91 @@ void decode(vector<unsigned char>& buffer){
     done
     */
 
-
     unordered_map<vector<unsigned char>, int, VectorHash, VectorEqual> dictionary;
     vector<int> output;
-    
+
     cout << "Decoding..." << "\n";
     cout << "Buffer size: " << buffer.size() << "\n";
 }
 
-int main(int argc, char* argv[]) {
-    cout << "SQUEEZE!" << "\n";
-    
-    if (argc < 2) {
+int main(int argc, char *argv[])
+{
+
+    if (argc < 2)
+    {
         std::cerr << "Usage: " << argv[0] << " <input_file>\n";
         std::cerr << "  - For compression: input any file, output will be .sqzd\n";
         std::cerr << "  - For decompression: input .sqzd file, output will be original extension\n";
         return 1;
     }
-    
-    const char* inputFilename = argv[1];
+
+    cout << "\n"
+         << HEADER << "\n";
+
+    const char *inputFilename = argv[1];
     std::string inputStr(inputFilename);
     std::string inputExt = getFileExtension(inputStr);
-    
+
     std::string outputFilename;
     bool isDecompression = (inputExt == ".sqzd");
-    
-    if (argc >= 3) {
+
+    if (argc >= 3)
+    {
         outputFilename = argv[2];
-    } else {
-        if (isDecompression) {
+    }
+    else
+    {
+        if (isDecompression)
+        {
             outputFilename = removeExtension(inputStr);
-        } else {
+        }
+        else
+        {
             outputFilename = inputStr + ".sqzd";
         }
     }
-    
-    cout << (isDecompression ? "DECOMPRESSING: " : "COMPRESSING: ") << inputFilename << "\n";
-    cout << "Output: " << outputFilename << "\n";
-    
+
+    printLinePair("", "");
+    printLinePair((isDecompression ? "DECOMPRESSING: " : "COMPRESSING: "), inputFilename);
+    printLinePair("OUTPUT: ", outputFilename);
+    printLinePair("", "");
+    printBoxEnd();
+
     std::ifstream input(inputFilename, std::ios::binary);
-    if (!input) {
-        std::cerr << "Error opening input file: " << inputFilename << "\n";
+    if (!input)
+    {
+        printLinePairError("ERROR opening input file: ", inputFilename);
         return 1;
     }
-    
+
     std::vector<unsigned char> buffer((std::istreambuf_iterator<char>(input)),
-                                       std::istreambuf_iterator<char>());
-    cout << "Buffer read complete" << "\n";
-    
-    if (isDecompression) {
+                                      std::istreambuf_iterator<char>());
+    printLine("Buffer read complete");
+
+    if (isDecompression)
+    {
         decode(buffer);
-    } else {
+    }
+    else
+    {
         encode(buffer);
     }
-    
+
     std::ofstream output(outputFilename, std::ios::binary);
-    if (!output) {
+    if (!output)
+    {
         std::cerr << "Error opening output file: " << outputFilename << "\n";
         return 1;
     }
-    
-    output.write(reinterpret_cast<const char*>(buffer.data()), buffer.size());
-    std::cout << "Operation complete: " << outputFilename << "\n";
-    
+
+    output.write(reinterpret_cast<const char *>(buffer.data()), buffer.size());
+
+    cout << "\n";
+    printBoxEnd();
+    printLine("Write complete!");
+    printLinePair("OUTPUT SAVED TO: ", outputFilename);
+    printBoxEnd();
+    cout << "\n";
+
     return 0;
 }
