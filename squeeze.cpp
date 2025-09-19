@@ -226,6 +226,12 @@ bool encode(vector<unsigned char> &buffer)
         }
         else
         {
+            if (nextCode >= 65536)
+            {
+                printLinePairError("ERROR: ", "dictionary entry overflow");
+                return false;
+            }
+
             dictionary[wc] = nextCode++;
             if (!w.empty())
             {
