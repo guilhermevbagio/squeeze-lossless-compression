@@ -180,7 +180,7 @@ void displayByte(vector<unsigned char> byte)
     std::cout << "\n";
 }
 
-void encode(vector<unsigned char> &buffer)
+bool encode(vector<unsigned char> &buffer)
 {
 
     /*
@@ -227,7 +227,6 @@ void encode(vector<unsigned char> &buffer)
         else
         {
             dictionary[wc] = nextCode++;
-
             if (!w.empty())
             {
                 output.push_back(dictionary[w]);
@@ -248,39 +247,94 @@ void encode(vector<unsigned char> &buffer)
     buffer.clear();
     for (int code : output)
     {
-        buffer.push_back((code >> 8) & 0xFF);
         buffer.push_back(code & 0xFF);
+        buffer.push_back((code >> 8) & 0xFF);
     }
 
     printLinePair("New file size: ", formatSize(buffer.size()));
     printBoxEnd();
+
+    return true;
 }
 
-void decode(vector<unsigned char> &buffer)
+bool decode(vector<unsigned char> &buffer)
 {
-    /*
-    read a char k;
-    output k;
-    w = k;
-    while (read a char k) do
-        if (index k exists in dictionary) then
-            entry = dictionary entry for k;
+    unordered_map<int, vector<unsigned char>> dictionary;
+    vector<unsigned char> output;
+
+    printLinePair("Input size: ", formatSize(buffer.size()));
+    printLine("Decoding...");
+    printBoxEnd();
+
+    for (int i = 0; i < 256; i++)
+    {
+        dictionary[i] = {static_cast<unsigned char>(i)};
+    }
+
+    int currSizeDict = 256;
+
+    vector<int> codes;
+    if (buffer.size() % 2 != 0)
+    {
+        printLinePairError("ERROR: ", "invalid buffer size for 16-bit codes");
+        return false;
+    }
+
+    for (int i = 0; i < buffer.size(); i += 2)
+    {
+        int code = buffer[i] | (buffer[i + 1] << 8);
+        codes.push_back(code);
+    }
+
+    if (codes.empty())
+    {
+        printLinePairError("ERROR: ", "no codes to decode");
+        return false;
+    }
+
+    int k = codes[0];
+    cout << k;
+    if (k >= 256)
+    {
+        printLinePairError("ERROR: ", "first code must be single character: " + to_string(k));
+        return false;
+    }
+
+    vector<unsigned char> w = dictionary[k];
+    output.insert(output.end(), w.begin(), w.end());
+
+    for (int i = 1; i < codes.size(); i++)
+    {
+        k = codes[i];
+        vector<unsigned char> entry;
+
+        if (dictionary.find(k) != dictionary.end())
+        {
+            entry = dictionary[k];
+        }
         else if (k == currSizeDict)
-            entry = w + w[0];
+        {
+            entry = w;
+            entry.push_back(w[0]);
+        }
         else
-            signal invalid code;
-        endif
-        output entry;
-        add w+entry[0] to the dictionary;
+        {
+            printLinePairError("ERROR: ", "invalid code encountered");
+            return false;
+        }
+
+        output.insert(output.end(), entry.begin(), entry.end());
+
+        vector<unsigned char> newEntry = w;
+        newEntry.push_back(entry[0]);
+        dictionary[currSizeDict] = newEntry;
+        currSizeDict++;
+
         w = entry;
-    done
-    */
+    }
 
-    unordered_map<vector<unsigned char>, int, VectorHash, VectorEqual> dictionary;
-    vector<int> output;
-
-    cout << "Decoding..." << "\n";
-    cout << "Buffer size: " << buffer.size() << "\n";
+    buffer.swap(output);
+    return true;
 }
 
 int main(int argc, char *argv[])
@@ -337,14 +391,19 @@ int main(int argc, char *argv[])
                                       std::istreambuf_iterator<char>());
     printLine("Buffer read complete");
 
+    bool success = false;
+
     if (isDecompression)
     {
-        decode(buffer);
+        success = decode(buffer);
     }
     else
     {
-        encode(buffer);
+        success = encode(buffer);
     }
+
+    if (!success)
+        return 1;
 
     std::ofstream output(outputFilename, std::ios::binary);
     if (!output)
