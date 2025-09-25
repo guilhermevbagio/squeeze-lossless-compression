@@ -46,6 +46,7 @@
         "xtr1common": "cpp",
         "xutility": "cpp",
         "xhash": "cpp",
-        "list": "cpp"
+        "list": "cpp",
+        "unordered_map": "cpp"
     }
 }

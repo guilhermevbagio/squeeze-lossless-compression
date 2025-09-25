@@ -9,207 +9,423 @@
 #include <cctype>
 using namespace std;
 
-#define fast_io ios::sync_with_stdio(false); cin.tie(0);
+#define fast_io                  \
+    ios::sync_with_stdio(false); \
+    cin.tie(0);
 
 const unsigned char MARKER = 0xFF;
 const int MAX_CHAIN_LENGTH = 8;
+const string HEADER = "O=======================|[ SQUEEZE! ]|=======================O";
 
-//TA LENTO Q SO A PORRA
+struct VectorHash
+{
+    size_t operator()(const vector<unsigned char> &v) const
+    {
+        size_t hash = 0;
+        for (auto b : v)
+        {
+            hash ^= std::hash<unsigned char>()(b) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+        }
+        return hash;
+    }
+};
 
-void displayBits(unsigned char byte) {
-    for (int bit = 7; bit >= 0; --bit) {
+struct VectorEqual
+{
+    bool operator()(const vector<unsigned char> &a, const vector<unsigned char> &b) const
+    {
+        return a == b;
+    }
+};
+
+void printLinePair(string key, string value)
+{
+    cout << "| " << key;
+
+    int padSize = 4;
+    int lnLength = HEADER.size() - key.size() - value.size() - padSize;
+
+    for (int i = 0; i < lnLength; i++)
+    {
+        cout << " ";
+    }
+
+    cout << value << " |\n";
+}
+
+void printLine(string line)
+{
+    cout << "| " << line;
+
+    int padSize = 4;
+    int lnLength = HEADER.size() - line.size() - padSize;
+
+    for (int i = 0; i < lnLength; i++)
+    {
+        cout << " ";
+    }
+
+    cout << " |\n";
+}
+
+void printBoxEnd()
+{
+    cout << "O";
+    for (int i = 0; i < HEADER.size() - 2; i++)
+    {
+        cout << "=";
+    }
+    cout << "O\n";
+}
+
+void printBoxEndError()
+{
+    cout << "[!]";
+    for (int i = 0; i < HEADER.size() - 6; i++)
+    {
+        cout << "=";
+    }
+    cout << "[!]\n";
+}
+
+void printLinePairError(string key, string value)
+{
+
+    cout << "\n";
+
+    printBoxEndError();
+    printLinePair("", "");
+    cout << "| [!] " << key;
+
+    int padSize = 12;
+    int lnLength = HEADER.size() - key.size() - value.size() - padSize;
+
+    for (int i = 0; i < lnLength; i++)
+    {
+        cout << " ";
+    }
+
+    cout << value << " [!] |\n";
+
+    printLinePair("", "");
+    printBoxEndError();
+}
+
+std::string formatSize(int size)
+{
+    std::string s = std::to_string(size);
+    std::string formatted_s = "";
+    int counter = 0;
+
+    for (int i = s.length() - 1; i >= 0; --i)
+    {
+        formatted_s.push_back(s[i]);
+        counter++;
+        if (counter % 3 == 0 && i != 0)
+        {
+            formatted_s.push_back(',');
+        }
+    }
+    std::reverse(formatted_s.begin(), formatted_s.end());
+
+    formatted_s += " bytes";
+
+    return formatted_s;
+}
+
+std::string getFileExtension(const std::string &filename)
+{
+    size_t pos = filename.find_last_of('.');
+    if (pos != std::string::npos)
+    {
+        return filename.substr(pos);
+    }
+    return "";
+}
+
+std::string removeExtension(const std::string &filename)
+{
+    size_t pos = filename.find_last_of('.');
+    if (pos != std::string::npos)
+    {
+        return "desqueezed-" + filename.substr(0, pos);
+    }
+    return "desqueezed-" + filename;
+}
+
+void displayBits(unsigned char byte)
+{
+    for (int bit = 7; bit >= 0; --bit)
+    {
         std::cout << ((byte >> bit) & 1);
     }
     std::cout << " ";
 }
 
-void displayByte(string byte){
-    for (unsigned char b : byte) {
+void displayByte(string byte)
+{
+    for (unsigned char b : byte)
+    {
         displayBits(b);
     }
     std::cout << "\n";
 }
 
-void encode(vector<unsigned char>& buffer) {
-
-    cout << "Encoding..." << "\n";
-    std::unordered_map<string, int> freq;
-    std::unordered_map<string, int> commonBytes;
-
-    //constructs frequency map
-    for (int i = 0; i < buffer.size(); i++) {
-        for(int j = 1; j <= MAX_CHAIN_LENGTH; ++j) {
-            if (i + j <= buffer.size()) {
-                string bytes(buffer.begin() + i, buffer.begin() + i + j);
-
-                int amt = ++freq[bytes];
-
-                if(amt > 2 && bytes.size() >= 3){
-                    commonBytes[bytes] = amt;
-                } 
-            }
-        }
+void displayByte(vector<unsigned char> byte)
+{
+    for (unsigned char b : byte)
+    {
+        displayBits(b);
     }
-
-    int avg, sum = 0;
-    //evaluates freqs
-    for (auto& pair : freq) {
-        string bytes = pair.first;
-        std::string bin;
-
-        sum += pair.second;
-    }
-    avg = sum / freq.size();
-
-    cout << "Average frequency: \n" << avg;
-    cout << "From " << freq.size() << " total distinct bytes \n";
-
-
-    cout << "Clearing key duplicates" << "\n";
-    vector<string> keys;
-    for(const auto& [k, _] : commonBytes)
-        keys.push_back(k);
-
-    sort(keys.begin(), keys.end(), [](const string& a, const string& b) {
-         return a.length() < b.length();
-    });
-
-    unordered_map<string, int> clearFreq;
-
-    for (int i = 0; i < keys.size(); ++i) {
-        bool shouldRemove = false;
-
-        for (int j = i + 1; j < keys.size(); ++j) {
-
-            if(keys[i].size() >= keys[j].size()) {
-                continue;
-            }
-
-            if (keys[j].find(keys[i]) != string::npos) {
-                int score_i = (freq[keys[i]] - 1) * (keys[i].size() - 2);
-                int score_j = (freq[keys[j]] - 1) * (keys[j].size() - 2);
-
-                if (score_i <= score_j) {
-                    shouldRemove = true;
-                    break;
-                }
-            }
-        }
-
-        if (!shouldRemove) {
-            clearFreq[keys[i]] = commonBytes[keys[i]];
-        }
-    }
-
-    
-    cout << "Generating aliases" << "\n";
-    unordered_map<string, unsigned char> byteAliases;
-    unsigned char start = 0x01;
-    for(const auto& [k, _] : clearFreq) {
-        byteAliases[k] = start++;
-    }
-
-    cout << byteAliases.size() << " bytes selected for substitution\n";
-
-    for(auto& [k, _] : clearFreq)
-        displayByte(k);
-
-    int total_savings = 0;
-    for (const auto& [pattern, freq] : clearFreq) {
-        int saving = (freq - 1) * (pattern.size() - 2);
-        if (saving > 0) {
-            total_savings += saving;
-        }
-    }
-    std::cout << "Estimated total savings: " << total_savings << " bytes\n";
-
-    cout << "Substituting..." << "\n";
-    vector<unsigned char> resultBuffer;
-    
-    resultBuffer.reserve(buffer.size());
-    size_t last_percent = -1;
-    unordered_map<unsigned char, vector<pair<string, unsigned char>>> fastAliasMap;
-    unordered_map<string, int> actualSubs;
-    
-    for (const auto& [pattern, alias] : byteAliases) {
-        fastAliasMap[(unsigned char)pattern[0]].emplace_back(pattern, alias);
-    }
-
-    for (int i = 0; i < buffer.size();) {
-        bool subs = false;
-
-        auto it = fastAliasMap.find(buffer[i]);
-        if (it != fastAliasMap.end()) {
-            for (const auto& [pattern, alias] : it->second) {
-                if (i + pattern.size() <= buffer.size() &&
-                    memcmp(&buffer[i], pattern.data(), pattern.size()) == 0) {
-
-                    resultBuffer.push_back(MARKER);
-                    resultBuffer.push_back(alias);
-                    i += pattern.size(); 
-                    actualSubs[pattern]++;
-                    subs = true;
-                    break;
-                }
-            }
-        }
-
-        if (!subs) {
-            resultBuffer.push_back(buffer[i]);
-            ++i;
-        }
-
-        size_t percent = i * 100 / buffer.size();
-        if (percent > last_percent + 5) {
-            std::cout << percent << "% (" << i << "/" << buffer.size() << ")\n";
-            last_percent = percent;
-        }
-    }
-
-    int actualSavings = 0;
-    for (const auto& [pattern, count] : actualSubs) {
-        if (count > 0) {
-            actualSavings += count * ((int)pattern.size() - 2);
-        }
-    }
-    std::cout << "Actual savings: " << actualSavings << " bytes\n";
-
-    buffer.clear();
-    buffer = move(resultBuffer);
+    std::cout << "\n";
 }
 
-int main(int argc, char* argv[]) {
-    cout << "SQUEEZE!" << "\n";
+bool encode(vector<unsigned char> &buffer)
+{
 
-    if (argc < 3) {
-        std::cerr << "Usage: " << argv[0] << " <input_file> <output_file>\n";
+    /*
+    w \= NIL;
+    add all possible charcodes to the dictionary
+    for (every character c in the uncompressed data) do
+        if ((w + c) exists in the dictionary) then
+           w = w + c;
+        else
+           add (w + c) to the dictionary;
+           add the dictionary code for w to output;
+           w = c;
+        endif
+    done
+    add the dictionary code for w to output;
+    display output;
+   */
+
+    unordered_map<vector<unsigned char>, int, VectorHash, VectorEqual> dictionary;
+    vector<int> output;
+
+    printLinePair("Input size: ", formatSize(buffer.size()));
+    printLine("Encoding...");
+    printBoxEnd();
+
+    for (int i = 0; i < 256; i++)
+    {
+        dictionary[{static_cast<unsigned char>(i)}] = i;
+    }
+
+    int nextCode = 256;
+    vector<unsigned char> w = {};
+
+    for (int i = 0; i < buffer.size(); i++)
+    {
+        unsigned char c = buffer[i];
+        vector<unsigned char> wc = w;
+        wc.push_back(c);
+
+        if (dictionary.find(wc) != dictionary.end())
+        {
+            w = wc;
+        }
+        else
+        {
+            if (nextCode >= 65536)
+            {
+                printLinePairError("ERROR: ", "dictionary entry overflow");
+                return false;
+            }
+
+            dictionary[wc] = nextCode++;
+            if (!w.empty())
+            {
+                output.push_back(dictionary[w]);
+            }
+
+            w = {c};
+        }
+    }
+
+    if (!w.empty())
+    {
+        output.push_back(dictionary[w]);
+    }
+
+    printLine("SQUEEZED!");
+    printLinePair("Output size: ", formatSize(output.size()));
+
+    buffer.clear();
+    for (int code : output)
+    {
+        buffer.push_back(code & 0xFF);
+        buffer.push_back((code >> 8) & 0xFF);
+    }
+
+    printLinePair("New file size: ", formatSize(buffer.size()));
+    printBoxEnd();
+
+    return true;
+}
+
+bool decode(vector<unsigned char> &buffer)
+{
+    unordered_map<int, vector<unsigned char>> dictionary;
+    vector<unsigned char> output;
+
+    printLinePair("Input size: ", formatSize(buffer.size()));
+    printLine("Decoding...");
+    printBoxEnd();
+
+    for (int i = 0; i < 256; i++)
+    {
+        dictionary[i] = {static_cast<unsigned char>(i)};
+    }
+
+    int currSizeDict = 256;
+
+    vector<int> codes;
+    if (buffer.size() % 2 != 0)
+    {
+        printLinePairError("ERROR: ", "invalid buffer size for 16-bit codes");
+        return false;
+    }
+
+    for (int i = 0; i < buffer.size(); i += 2)
+    {
+        int code = buffer[i] | (buffer[i + 1] << 8);
+        codes.push_back(code);
+    }
+
+    if (codes.empty())
+    {
+        printLinePairError("ERROR: ", "no codes to decode");
+        return false;
+    }
+
+    int k = codes[0];
+    cout << k;
+    if (k >= 256)
+    {
+        printLinePairError("ERROR: ", "first code must be single character: " + to_string(k));
+        return false;
+    }
+
+    vector<unsigned char> w = dictionary[k];
+    output.insert(output.end(), w.begin(), w.end());
+
+    for (int i = 1; i < codes.size(); i++)
+    {
+        k = codes[i];
+        vector<unsigned char> entry;
+
+        if (dictionary.find(k) != dictionary.end())
+        {
+            entry = dictionary[k];
+        }
+        else if (k == currSizeDict)
+        {
+            entry = w;
+            entry.push_back(w[0]);
+        }
+        else
+        {
+            printLinePairError("ERROR: ", "invalid code encountered");
+            return false;
+        }
+
+        output.insert(output.end(), entry.begin(), entry.end());
+
+        vector<unsigned char> newEntry = w;
+        newEntry.push_back(entry[0]);
+        dictionary[currSizeDict] = newEntry;
+        currSizeDict++;
+
+        w = entry;
+    }
+
+    buffer.swap(output);
+    return true;
+}
+
+int main(int argc, char *argv[])
+{
+
+    if (argc < 2)
+    {
+        std::cerr << "Usage: " << argv[0] << " <input_file>\n";
+        std::cerr << "  - For compression: input any file, output will be .sqzd\n";
+        std::cerr << "  - For decompression: input .sqzd file, output will be original extension\n";
         return 1;
     }
 
-    const char* inputFilename = argv[1];
-    const char* outputFilename = argv[2];
+    cout << "\n"
+         << HEADER << "\n";
+
+    const char *inputFilename = argv[1];
+    std::string inputStr(inputFilename);
+    std::string inputExt = getFileExtension(inputStr);
+
+    std::string outputFilename;
+    bool isDecompression = (inputExt == ".sqzd");
+
+    if (argc >= 3)
+    {
+        outputFilename = argv[2];
+    }
+    else
+    {
+        if (isDecompression)
+        {
+            outputFilename = removeExtension(inputStr);
+        }
+        else
+        {
+            outputFilename = inputStr + ".sqzd";
+        }
+    }
+
+    printLinePair("", "");
+    printLinePair((isDecompression ? "DECOMPRESSING: " : "COMPRESSING: "), inputFilename);
+    printLinePair("OUTPUT: ", outputFilename);
+    printLinePair("", "");
+    printBoxEnd();
 
     std::ifstream input(inputFilename, std::ios::binary);
-    if (!input) {
-        std::cerr << "Error opening input file: " << inputFilename << "\n";
+    if (!input)
+    {
+        printLinePairError("ERROR opening input file: ", inputFilename);
         return 1;
     }
 
     std::vector<unsigned char> buffer((std::istreambuf_iterator<char>(input)),
-                                   std::istreambuf_iterator<char>());
+                                      std::istreambuf_iterator<char>());
+    printLine("Buffer read complete");
 
-    cout << "Buffer read complete" << "\n";
+    bool success = false;
 
-    encode(buffer);
+    if (isDecompression)
+    {
+        success = decode(buffer);
+    }
+    else
+    {
+        success = encode(buffer);
+    }
+
+    if (!success)
+        return 1;
 
     std::ofstream output(outputFilename, std::ios::binary);
-    if (!output) {
+    if (!output)
+    {
         std::cerr << "Error opening output file: " << outputFilename << "\n";
         return 1;
     }
 
-    output.write(reinterpret_cast<const char*>(buffer.data()), buffer.size());
-    std::cout << "Binary copy complete.\n";
+    output.write(reinterpret_cast<const char *>(buffer.data()), buffer.size());
+
+    cout << "\n";
+    printBoxEnd();
+    printLine("Write complete!");
+    printLinePair("OUTPUT SAVED TO: ", outputFilename);
+    printBoxEnd();
+    cout << "\n";
 
     return 0;
 }
