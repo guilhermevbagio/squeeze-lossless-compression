@@ -282,7 +282,7 @@ bool decode(vector<unsigned char> &buffer)
     vector<int> codes;
     if (buffer.size() % 2 != 0)
     {
-        printLinePairError("ERROR: ", "invalid buffer size for 16-bit codes");
+        printLinePairError("ERROR: ", "file is corrupted");
         return false;
     }
 
@@ -294,12 +294,11 @@ bool decode(vector<unsigned char> &buffer)
 
     if (codes.empty())
     {
-        printLinePairError("ERROR: ", "no codes to decode");
+        printLinePairError("ERROR: ", "file is corrupted");
         return false;
     }
 
     int k = codes[0];
-    cout << k;
     if (k >= 256)
     {
         printLinePairError("ERROR: ", "first code must be single character: " + to_string(k));
